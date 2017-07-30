@@ -1,0 +1,46 @@
+
+#
+# This config file reads logs for all containers running on this host
+#
+
+# filebeat.registry_file: /var/log/containers/filebeat_registry
+# filebeat.registry_file: /var/log/filebeat_registry
+
+filebeat:
+  prospectors:
+    -
+      paths:
+        - "/var/log/containers/*.log"
+      symlinks: true
+      json.message_key: log
+      json.keys_under_root: true
+      json.add_error_key: true
+      multiline.pattern: '^\s'
+      multiline.match: after
+      document_type: kubernetes-docker
+      fields:
+        application: docker
+        host: ${FILEBEAT_HOST:${HOSTNAME}}
+        logstash: ${LOGSTASH_HOST}
+      fields_under_root: false
+
+output:
+    #  logstash:
+    #  hosts: [ "${LOGSTASH_HOST}:${LOGSTASH_PORT:5044}" ]
+  kafka:
+    # initial brokers for reading cluster metadata
+    hosts: ["kafka1:9092", "kafka2:9092", "kafka3:9092"]
+    # message topic selection + partitioning
+    topic: '%{[type]}'
+    partition.round_robin:
+      reachable_only: false
+
+    required_acks: 1
+    compression: gzip
+    max_message_bytes: 1000000
+  file:
+    path: "/tmp/filebeat"
+    filename: filebeat
+
+
+logging.level: ${LOG_LEVEL:error}
